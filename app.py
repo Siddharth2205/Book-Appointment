@@ -4,22 +4,65 @@ import csv
 import os
 import smtplib
 from email.message import EmailMessage
+import pyrebase
 
-st.set_page_config(page_title="Appointment Booking", layout="centered")
+# -------------------- FIREBASE CONFIG --------------------
 
-# CONFIGURE YOUR EMAIL CREDENTIALS HERE
+firebase_config = {
+    "apiKey": "AIzaSyB7Pu_JNQHLJpkOnW7-jncOsVcXOJVwfyc",
+    "authDomain": "book-appointment-b58a3.firebaseapp.com",
+    "projectId": "book-appointment-b58a3",
+    "storageBucket": "book-appointment-b58a3.appspot.com",
+    "messagingSenderId": "812904261951",
+    "appId": "1:812904261951:web:29635f0b1c1b548aab4b8a",
+    "databaseURL": ""
+}
+
+firebase = pyrebase.initialize_app(firebase_config)
+auth = firebase.auth()
+
+# -------------------- EMAIL CONFIG --------------------
+
 SENDER_EMAIL = "sidinregina@gmail.com"
 APP_PASSWORD = "gmdnghznftupisyx"
 
+# -------------------- SETUP --------------------
+
 CSV_FILE = "appointments.csv"
 
-# Initialize CSV if it doesn't exist
+st.set_page_config(page_title="Appointment Booking", layout="centered")
+
 if not os.path.exists(CSV_FILE):
     with open(CSV_FILE, mode='w', newline='') as file:
         writer = csv.writer(file)
         writer.writerow(["Name", "Email", "Date", "Time", "Booked At"])
 
-# Define time slots (9 AM to 5 PM, every hour)
+# -------------------- SESSION STATE --------------------
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+# -------------------- AUTH --------------------
+
+st.sidebar.title("🔐 Login / Sign Up")
+auth_option = st.sidebar.radio("Choose Action", ["Login", "Sign Up"])
+user_email = st.sidebar.text_input("Email")
+user_password = st.sidebar.text_input("Password", type="password")
+
+if st.sidebar.button(auth_option):
+    try:
+        if auth_option == "Login":
+            user = auth.sign_in_with_email_and_password(user_email, user_password)
+            st.session_state.user = user_email
+            st.sidebar.success("✅ Logged in as " + user_email)
+        else:
+            user = auth.create_user_with_email_and_password(user_email, user_password)
+            st.sidebar.success("✅ Account created! You can now log in.")
+    except Exception as e:
+        st.sidebar.error("❌ Authentication failed.")
+
+# -------------------- FUNCTIONS --------------------
+
 def generate_time_slots():
     start = datetime.time(9, 0)
     end = datetime.time(17, 0)
@@ -27,10 +70,9 @@ def generate_time_slots():
     t = datetime.datetime.combine(datetime.date.today(), start)
     while t.time() < end:
         slots.append(t.time())
-        t += datetime.timedelta(hours=0.5)
+        t += datetime.timedelta(minutes=30)
     return slots
 
-# Get available slots for a specific date
 def get_available_slots(selected_date):
     booked = set()
     if os.path.exists(CSV_FILE):
@@ -55,50 +97,55 @@ def send_email(to_email, subject, message):
             smtp.send_message(email)
         return True
     except Exception as e:
-        st.error(f"Failed to send email: {e}")
+        st.error(f"📧 Failed to send email: {e}")
         return False
 
-# ---- UI ----
+# -------------------- MAIN UI --------------------
+
 st.title("📅 Book Your Appointment")
 
-with st.form("booking_form"):
-    name = st.text_input("Full Name")
-    email = st.text_input("Email Address")
-    date = st.date_input("Select Date", min_value=datetime.date.today())
-    
-    available_slots = get_available_slots(date)
-    if available_slots:
-        time = st.selectbox("Select Time", available_slots)
-    else:
-        time = None
-        st.warning("No available time slots for this date. Please choose another day.")
+if st.session_state.user:
+    st.markdown(f"👤 Logged in as: `{st.session_state.user}`")
 
-    submitted = st.form_submit_button("Book Appointment")
-
-    if submitted:
-        if not time:
-            st.error("Please select a valid time slot.")
+    with st.form("booking_form"):
+        name = st.text_input("Full Name")
+        email = st.session_state.user
+        date = st.date_input("Select Date", min_value=datetime.date.today())
+        available_slots = get_available_slots(date)
+        
+        if available_slots:
+            time = st.selectbox("Select Time", available_slots)
         else:
-            # Save to CSV
-            with open(CSV_FILE, mode='a', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow([name, email, date, time, datetime.datetime.now()])
+            time = None
+            st.warning("❌ No available time slots for this date. Please choose another day.")
 
-            # Send confirmation email
-            message = (
-                f"Hello {name},\n\n"
-                f"Your appointment is confirmed for {date} at {time}.\n\n"
-                "Thank you!"
-            )
-            if send_email(email, "Appointment Confirmation", message):
-                st.success(f"✅ Thank you, {name}! Appointment booked and confirmation email sent.")
-# ----- Admin Dashboard -----
-st.sidebar.title("🔐 Admin Login")
+        submitted = st.form_submit_button("Book Appointment")
 
-admin_mode = st.sidebar.checkbox("Admin Mode")
-admin_password = st.sidebar.text_input("Enter Admin Password", type="password")
+        if submitted:
+            if not time:
+                st.error("❗ Please select a valid time slot.")
+            else:
+                with open(CSV_FILE, mode='a', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([name, email, date, time, datetime.datetime.now()])
 
-if admin_mode and admin_password == "admin123":  # <-- Set your own password here
+                message = (
+                    f"Hello {name},\n\n"
+                    f"Your appointment is confirmed for {date} at {time}.\n\n"
+                    "Thank you!"
+                )
+                if send_email(email, "Appointment Confirmation", message):
+                    st.success(f"✅ Appointment booked and confirmation email sent to {email}")
+else:
+    st.info("🔐 Please log in to book your appointment.")
+
+# -------------------- ADMIN DASHBOARD --------------------
+
+st.sidebar.title("🛠 Admin Dashboard")
+admin_mode = st.sidebar.checkbox("Enable Admin View")
+admin_password = st.sidebar.text_input("Admin Password", type="password")
+
+if admin_mode and admin_password == "admin123":
     st.header("📋 Admin Dashboard: All Bookings")
 
     if os.path.exists(CSV_FILE):
@@ -111,11 +158,9 @@ if admin_mode and admin_password == "admin123":  # <-- Set your own password her
         else:
             headers = bookings[0]
             data = bookings[1:]
-
-            # Display bookings
             st.dataframe(data, use_container_width=True, hide_index=True)
 
-            # Optional: Delete a booking
+            # Delete booking
             st.subheader("🗑️ Delete a Booking")
             options = [f"{i+1}. {row[0]} - {row[2]} at {row[3]}" for i, row in enumerate(data)]
             selected = st.selectbox("Select a booking to delete", options)
@@ -124,7 +169,6 @@ if admin_mode and admin_password == "admin123":  # <-- Set your own password her
                 index_to_delete = options.index(selected)
                 del data[index_to_delete]
 
-                # Write back to CSV
                 with open(CSV_FILE, "w", newline="") as file:
                     writer = csv.writer(file)
                     writer.writerow(headers)
