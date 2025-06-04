@@ -12,11 +12,12 @@ firebase_config = {
     "apiKey": "AIzaSyB7Pu_JNQHLJpkOnW7-jncOsVcXOJVwfyc",
     "authDomain": "book-appointment-b58a3.firebaseapp.com",
     "projectId": "book-appointment-b58a3",
-    "storageBucket": "book-appointment-b58a3.appspot.com",
+    "storageBucket": "book-appointment-b58a3.appspot.com",  # <-- use this
     "messagingSenderId": "812904261951",
     "appId": "1:812904261951:web:29635f0b1c1b548aab4b8a",
     "databaseURL": ""
 }
+
 
 firebase = pyrebase.initialize_app(firebase_config)
 auth = firebase.auth()
