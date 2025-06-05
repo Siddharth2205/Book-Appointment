@@ -8,23 +8,9 @@ import pyrebase
 
 # -------------------- FIREBASE CONFIG --------------------
 
-firebase_config = {
-    "apiKey": "AIzaSyB7Pu_JNQHLJpkOnW7-jncOsVcXOJVwfyc",
-    "authDomain": "book-appointment-b58a3.firebaseapp.com",
-    "projectId": "book-appointment-b58a3",
-    "storageBucket": "book-appointment-b58a3.appspot.com",
-    "messagingSenderId": "812904261951",
-    "appId": "1:812904261951:web:29635f0b1c1b548aab4b8a",
-    "databaseURL": ""
-}
-
-firebase = pyrebase.initialize_app(firebase_config)
-auth = firebase.auth()
-
-# -------------------- EMAIL CONFIG --------------------
-
-SENDER_EMAIL = "sidinregina@gmail.com"
-APP_PASSWORD = "gmdnghznftupisyx"
+firebase_config = st.secrets["firebase"]
+SENDER_EMAIL = st.secrets["email"]["sender"]
+APP_PASSWORD = st.secrets["email"]["password"]
 
 # -------------------- SETUP --------------------
 
